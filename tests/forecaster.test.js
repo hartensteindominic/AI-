@@ -35,6 +35,9 @@ assert.ok(prediction.days.every((day) => day.confidence >= 40 && day.confidence 
 assert.ok(prediction.days.every((day) => day.agents.includes('Pattern Agent')));
 assert.ok(prediction.days.some((day) => day.why.includes('commitment pressure detected')));
 
+const oversizedHistory = Array.from({ length: 35 }, (_, index) => ({ mood: 5, energy: 5, focus: 5, sleep: 7, stress: 4, social: 5, notes: `entry ${index}` }));
+assert.equal(buildPersona({ history: oversizedHistory }).historyDepth, 30);
+
 const strained = buildPersona({ mood: 3, energy: 3, focus: 4, sleep: 4, stress: 9, social: 2, commitments: 'exam due interview deadline' });
 assert.equal(strained.archetype, 'Careful Recharger');
 

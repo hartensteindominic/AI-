@@ -7,16 +7,28 @@ const memoryCount = document.querySelector('#memory-count');
 const saveButton = document.querySelector('#save-checkin');
 const clearButton = document.querySelector('#clear-memory');
 
-function loadHistory() {
+function readStorage() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    return window.localStorage;
+  } catch (error) {
+    return null;
+  }
+}
+
+function loadHistory() {
+  const storage = readStorage();
+  if (!storage) return [];
+  try {
+    return JSON.parse(storage.getItem(STORAGE_KEY) || '[]');
   } catch (error) {
     return [];
   }
 }
 
 function saveHistory(history) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-30)));
+  const storage = readStorage();
+  if (!storage) return;
+  storage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-30)));
 }
 
 function updateMemoryCount() {
@@ -87,7 +99,8 @@ saveButton.addEventListener('click', () => {
 });
 
 clearButton.addEventListener('click', () => {
-  localStorage.removeItem(STORAGE_KEY);
+  const storage = readStorage();
+  if (storage) storage.removeItem(STORAGE_KEY);
   refresh();
 });
 

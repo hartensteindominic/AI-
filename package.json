@@ -1,0 +1,17 @@
+{
+  "name": "mini-me-life-forecaster",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Privacy-first browser-only mini-you life forecaster with local agent-style predictions.",
+  "scripts": {
+    "test": "node tests/forecaster.test.js",
+    "check": "npm test"
+  },
+  "keywords": [
+    "forecast",
+    "local-first",
+    "planner",
+    "agents"
+  ],
+  "license": "UNLICENSED"
+}
