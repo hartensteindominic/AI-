@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Cyber Runner - Meta Glasses Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Share Tech Mono', monospace;
+            color: #fff;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+
+        /* AR Glasses Vignette & Scanline */
+        .ar-vignette {
+            background: radial-gradient(circle at center, transparent 35%, rgba(0, 0, 5, 0.98) 100%);
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .scanline {
+            width: 100%;
+            height: 12px;
+            background: linear-gradient(to bottom, rgba(0, 255, 255, 0), rgba(0, 255, 255, 0.12), rgba(0, 255, 255, 0));
+            position: absolute;
+            animation: scan 4s linear infinite;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        @keyframes scan {
+            0% { top: -10%; }
+            100% { top: 110%; }
+        }
+
+        .hud-glass {
+            background: rgba(5, 10, 15, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.25);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.1);
+        }
+
+        .neon-text { text-shadow: 0 0 8px currentColor; }
+
+        .btn-neural {
+            background: rgba(0, 255, 255, 0.1);
+            border: 2px solid #00e5ff;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.3), inset 0 0 10px rgba(0, 229, 255, 0.2);
+            transition: transform 0.1s;
+        }
+        .btn-neural:active {
+            background: rgba(0, 229, 255, 0.3);
+            transform: scale(0.9);
+        }
+        .btn-dash {
+            border-color: #ff0055;
+            box-shadow: 0 0 10px rgba(255, 0, 85, 0.3), inset 0 0 10px rgba(255, 0, 85, 0.2);
+        }
+        .btn-dash:active {
+            background: rgba(255, 0, 85, 0.3);
+        }
+
+        #game-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+        
+        .damage-flash {
+            animation: flashRed 0.3s ease-out;
+        }
+        @keyframes flashRed {
+            0% { background-color: rgba(255, 0, 0, 0.6); }
+            100% { background-color: transparent; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container"></div>
+    <div id="flash-overlay" class="absolute inset-0 pointer-events-none z-20"></div>
+
+    <div class="absolute inset-0 ar-vignette"></div>
+    <div class="scanline"></div>
+
+    <!-- HUD -->
+    <div class="absolute top-4 left-4 right-4 z-30 flex justify-between items-start pointer-events-none">
+        <div class="hud-glass p-3 rounded-lg flex flex-col hidden sm:flex">
+            <div class="flex items-center space-x-2 text-cyan-400 mb-1">
+                <i class="fa-solid fa-satellite-dish animate-pulse"></i>
+                <span class="font-orbitron font-bold text-xs tracking-widest neon-text">NEURAL LINK</span>
+            </div>
+            <div class="text-[10px] text-gray-400">EMG BAND: <span class="text-green-400 font-bold">CONNECTED</span></div>
+        </div>
+
+        <div class="hud-glass px-6 py-2 rounded-lg text-center border-b-2 border-cyan-400">
+            <div class="text-[10px] text-cyan-400 font-orbitron tracking-widest">SCORE / DISTANCE</div>
+            <div id="scoreDisplay" class="text-3xl font-black text-white font-orbitron neon-text">0</div>
+        </div>
+        
+        <div class="hud-glass p-3 rounded-lg text-right">
+            <div class="text-sm text-pink-500 font-bold mb-1 neon-text tracking-widest" id="healthDisplay">██ ██ ██</div>
+            <div class="text-[10px] text-gray-400">SHIELD INTEGRITY</div>
+        </div>
+    </div>
+
+    <!-- Menu / Game Over Screen -->
+    <div id="menuScreen" class="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md transition-opacity duration-300">
+        <h1 class="font-orbitron text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-pink-500 mb-2 text-center drop-shadow-[0_0_15px_rgba(0,255,255,0.5)]">3D CYBER RUNNER</h1>
+        <p class="text-cyan-300 text-xs md:text-sm mb-6 text-center max-w-md px-4">Optimized for Meta AI glasses display and wristband inputs.</p>
+        
+        <div class="grid grid-cols-2 gap-3 mb-8 w-full max-w-sm px-4">
+            <div class="bg-gray-900/90 p-3 rounded-xl border border-cyan-500/30 text-center">
+                <i class="fa-solid fa-arrows-left-right text-cyan-400 text-lg mb-1"></i>
+                <div class="text-cyan-400 font-bold text-[11px] font-orbitron">SWIPE / ARROWS</div>
+                <div class="text-gray-400 text-[9px]">Switch Lanes</div>
+            </div>
+            <div class="bg-gray-900/90 p-3 rounded-xl border border-cyan-500/30 text-center">
+                <i class="fa-solid fa-arrow-up text-cyan-400 text-lg mb-1"></i>
+                <div class="text-cyan-400 font-bold text-[11px] font-orbitron">FLICK UP</div>
+                <div class="text-gray-400 text-[9px]">Jump</div>
+            </div>
+            <div class="bg-gray-900/90 p-3 rounded-xl border border-pink-500/30 text-center col-span-2">
+                <i class="fa-solid fa-hand-fist text-pink-500 text-lg mb-1"></i>
+                <div class="text-pink-500 font-bold text-[11px] font-orbitron">FIST CLENCH / SPACEBAR</div>
+                <div class="text-gray-400 text-[9px]">Dash Smash Firewalls</div>
+            </div>
+        </div>
+
+        <button id="startBtn" class="hud-glass font-orbitron text-lg font-bold px-8 py-4 text-cyan-400 hover:text-white hover:bg-cyan-600/40 transition-all border-cyan-400 border-2 rounded-2xl pointer-events-auto shadow-[0_0_30px_rgba(0,255,255,0.3)]">
+            LAUNCH GAME <i class="fa-solid fa-play ml-2"></i>
+        </button>
+    </div>
+
+    <!-- On-screen Touch Controls -->
+    <div id="controls" class="absolute bottom-4 left-4 right-4 z-30 flex justify-between pointer-events-none hidden md:flex" style="opacity: 0.85;">
+        <div class="flex space-x-2">
+            <button id="btnLeft" class="btn-neural w-14 h-14 rounded-full font-orbitron font-bold text-cyan-400 flex items-center justify-center pointer-events-auto touch-manipulation">
+                <i class="fa-solid fa-angle-left text-xl"></i>
+            </button>
+            <button id="btnRight" class="btn-neural w-14 h-14 rounded-full font-orbitron font-bold text-cyan-400 flex items-center justify-center pointer-events-auto touch-manipulation">
+                <i class="fa-solid fa-angle-right text-xl"></i>
+            </button>
+        </div>
+        <div class="flex space-x-2">
+            <button id="btnDash" class="btn-neural btn-dash w-14 h-14 rounded-full font-orbitron font-bold text-pink-500 flex flex-col items-center justify-center pointer-events-auto touch-manipulation">
+                <i class="fa-solid fa-hand-fist text-sm"></i>
+                <span class="text-[8px]">SMASH</span>
+            </button>
+            <button id="btnJump" class="btn-neural w-14 h-14 rounded-full font-orbitron font-bold text-cyan-400 flex flex-col items-center justify-center pointer-events-auto touch-manipulation">
+                <i class="fa-solid fa-angle-up text-xl"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const healthDisplay = document.getElementById('healthDisplay');
+        const menuScreen = document.getElementById('menuScreen');
+        const startBtn = document.getElementById('startBtn');
+        const controls = document.getElementById('controls');
+        const flashOverlay = document.getElementById('flash-overlay');
+
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            controls.classList.remove('hidden');
+            controls.classList.add('flex');
+        }
+
+        // --- THREE.JS SETUP ---
+        const container = document.getElementById('game-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000205, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 4.5, 11);
+        camera.lookAt(0, 0, -10);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // High performance optimization for glasses
+        container.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0x404040, 2.5));
+        const dirLight = new THREE.DirectionalLight(0x00e5ff, 1.2);
+        dirLight.position.set(5, 12, 5);
+        scene.add(dirLight);
+
+        const neonLight = new THREE.PointLight(0xff0055, 2, 40);
+        neonLight.position.set(0, 2, 0);
+        scene.add(neonLight);
+
+        // --- GAME STATES & OBJECTS ---
+        let gameState = 'MENU';
+        let score = 0;
+        let health = 3;
+        let gameSpeed = 0.55;
+        let lanes = [-3, 0, 3];
+        let currentLane = 1;
+        
+        let obstacles = [];
+        let particles = [];
+        let collectables = [];
+
+        const gridHelper = new THREE.GridHelper(120, 60, 0x00e5ff, 0x003344);
+        gridHelper.position.y = 0;
+        scene.add(gridHelper);
+
+        // --- 3D PLAYER MODEL ---
+        const playerGroup = new THREE.Group();
+        scene.add(playerGroup);
+
+        const cyanMaterial = new THREE.MeshStandardMaterial({ color: 0x00e5ff, emissive: 0x0088aa, roughness: 0.2, metalness: 0.8 });
+        const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+
+        function createLimb(w, h, d, mat, yOffset) {
+            const geo = new THREE.BoxGeometry(w, h, d);
+            geo.translate(0, yOffset, 0);
+            return new THREE.Mesh(geo, mat);
+        }
+
+        const head = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 1.1), cyanMaterial);
+        head.position.y = 3.5;
+        playerGroup.add(head);
+
+        const visor = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.35, 0.2), new THREE.MeshBasicMaterial({color: 0xffffff}));
+        visor.position.set(0, 3.5, 0.55);
+        playerGroup.add(visor);
+
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.9, 0.9), darkMaterial);
+        torso.position.y = 1.9;
+        playerGroup.add(torso);
+
+        const armL = createLimb(0.45, 1.7, 0.45, cyanMaterial, -0.85);
+        armL.position.set(-1.0, 2.7, 0);
+        playerGroup.add(armL);
+
+        const armR = createLimb(0.45, 1.7, 0.45, cyanMaterial, -0.85);
+        armR.position.set(1.0, 2.7, 0);
+        playerGroup.add(armR);
+
+        const legL = createLimb(0.55, 1.9, 0.55, cyanMaterial, -0.95);
+        legL.position.set(-0.35, 1, 0);
+        playerGroup.add(legL);
+
+        const legR = createLimb(0.55, 1.9, 0.55, cyanMaterial, -0.95);
+        legR.position.set(0.35, 1, 0);
+        playerGroup.add(legR);
+
+        const shieldGeo = new THREE.SphereGeometry(2.3, 12, 12);
+        const shieldMat = new THREE.MeshBasicMaterial({ color: 0xff0055, wireframe: true, transparent: true, opacity: 0.5 });
+        const dashShield = new THREE.Mesh(shieldGeo, shieldMat);
+        dashShield.position.y = 2;
+        dashShield.visible = false;
+        playerGroup.add(dashShield);
+
+        const player = {
+            targetX: 0,
+            yVelocity: 0,
+            gravity: 0.035,
+            jumpForce: 0.6,
+            isJumping: false,
+            isDashing: false,
+            dashTimer: 0,
+            
+            update() {
+                playerGroup.position.x += (this.targetX - playerGroup.position.x) * 0.2;
+                
+                camera.position.x = playerGroup.position.x * 0.4;
+                camera.lookAt(playerGroup.position.x * 0.2, 2, -10);
+
+                if (this.isJumping) {
+                    this.yVelocity -= this.gravity;
+                    playerGroup.position.y += this.yVelocity;
+                    if (playerGroup.position.y <= 0) {
+                        playerGroup.position.y = 0;
+                        this.isJumping = false;
+                        this.yVelocity = 0;
+                    }
+                }
+
+                if (this.isDashing) {
+                    this.dashTimer--;
+                    if (this.dashTimer <= 0) {
+                        this.isDashing = false;
+                        dashShield.visible = false;
+                    }
+                }
+
+                this.animateLimbs();
+            },
+            
+            animateLimbs() {
+                const time = Date.now() * 0.015;
+                if (this.isDashing) {
+                    playerGroup.rotation.x = -Math.PI / 2.5;
+                    armL.rotation.x = -Math.PI;
+                    armR.rotation.x = -Math.PI;
+                    legL.rotation.x = 0;
+                    legR.rotation.x = 0;
+                    dashShield.rotation.z += 0.1;
+                } else if (this.isJumping) {
+                    playerGroup.rotation.x = 0;
+                    armL.rotation.x = -Math.PI;
+                    armR.rotation.x = -Math.PI;
+                    legL.rotation.x = -0.4;
+                    legR.rotation.x = 0.4;
+                } else {
+                    playerGroup.rotation.x = 0;
+                    const runSpeed = time * (gameSpeed * 2.5);
+                    legL.rotation.x = Math.sin(runSpeed) * 1.1;
+                    legR.rotation.x = Math.sin(runSpeed + Math.PI) * 1.1;
+                    armL.rotation.x = Math.sin(runSpeed + Math.PI) * 1.1;
+                    armR.rotation.x = Math.sin(runSpeed) * 1.1;
+                }
+            },
+
+            jump() {
+                if (!this.isJumping) {
+                    this.isJumping = true;
+                    this.yVelocity = this.jumpForce;
+                }
+            },
+
+            dash() {
+                if (!this.isDashing) {
+                    this.isDashing = true;
+                    this.dashTimer = 28;
+                    dashShield.visible = true;
+                    if(this.isJumping) this.yVelocity = 0;
+                }
+            },
+
+            moveLeft() {
+                if (currentLane > 0) {
+                    currentLane--;
+                    this.targetX = lanes[currentLane];
+                }
+            },
+
+            moveRight() {
+                if (currentLane < 2) {
+                    currentLane++;
+                    this.targetX = lanes[currentLane];
+                }
+            }
+        };
+
+        // --- OBSTACLES & SPAWNING ---
+        const obsGeo = new THREE.BoxGeometry(2.4, 2.4, 2.4);
+        const obsMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x440000 });
+        const fireGeo = new THREE.BoxGeometry(2.8, 3.8, 0.8);
+        const fireMat = new THREE.MeshStandardMaterial({ color: 0xff0055, wireframe: true, emissive: 0xff0055 });
+        const coinGeo = new THREE.OctahedronGeometry(0.7);
+        const coinMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x666600 });
+
+        function spawnObject() {
+            if (Math.random() < 0.04) return;
+            const laneIdx = Math.floor(Math.random() * 3);
+            const xPos = lanes[laneIdx];
+            const rand = Math.random();
+            let obj;
+
+            if (rand < 0.6) {
+                obj = new THREE.Mesh(obsGeo, obsMat);
+                obj.position.set(xPos, 1.2, -100);
+                obj.userData = { type: 'block' };
+                obstacles.push(obj);
+                scene.add(obj);
+            } else if (rand < 0.8) {
+                obj = new THREE.Mesh(fireGeo, fireMat);
+                obj.position.set(xPos, 1.9, -100);
+                obj.userData = { type: 'firewall' };
+                obstacles.push(obj);
+                scene.add(obj);
+            } else {
+                obj = new THREE.Mesh(coinGeo, coinMat);
+                obj.position.set(xPos, 2, -100);
+                obj.userData = { type: 'coin' };
+                collectables.push(obj);
+                scene.add(obj);
+            }
+        }
+
+        // --- PARTICLES ---
+        const pGeo = new THREE.BoxGeometry(0.25, 0.25, 0.25);
+        function createExplosion(x, y, z, color, count) {
+            const pMat = new THREE.MeshBasicMaterial({ color: color });
+            for (let i = 0; i < count; i++) {
+                const p = new THREE.Mesh(pGeo, pMat);
+                p.position.set(x, y, z);
+                p.userData = {
+                    vx: (Math.random() - 0.5) * 0.4,
+                    vy: Math.random() * 0.4 + 0.1,
+                    vz: (Math.random() - 0.5) * 0.4,
+                    life: 1.0
+                };
+                particles.push(p);
+                scene.add(p);
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.position.add(new THREE.Vector3(p.userData.vx, p.userData.vy, p.userData.vz));
+                p.userData.vy -= 0.02;
+                p.userData.life -= 0.03;
+                p.material.opacity = p.userData.life;
+                p.material.transparent = true;
+                if (p.userData.life <= 0) {
+                    scene.remove(p);
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function checkCollisions() {
+            const playerBox = new THREE.Box3().setFromObject(torso);
+            playerBox.expandByScalar(0.15);
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                const obsBox = new THREE.Box3().setFromObject(obs);
+                obsBox.expandByScalar(-0.2);
+
+                if (playerBox.intersectsBox(obsBox)) {
+                    if (obs.userData.type === 'firewall' && player.isDashing) {
+                        createExplosion(obs.position.x, obs.position.y, obs.position.z, 0xff0055, 15);
+                        score += 50;
+                        scene.remove(obs);
+                        obstacles.splice(i, 1);
+                    } else {
+                        takeDamage();
+                        createExplosion(obs.position.x, obs.position.y, obs.position.z, 0xff0000, 20);
+                        scene.remove(obs);
+                        obstacles.splice(i, 1);
+                    }
+                }
+            }
+
+            for (let i = collectables.length - 1; i >= 0; i--) {
+                let coin = collectables[i];
+                const coinBox = new THREE.Box3().setFromObject(coin);
+                if (playerBox.intersectsBox(coinBox)) {
+                    score += 10;
+                    createExplosion(coin.position.x, coin.position.y, coin.position.z, 0xffff00, 8);
+                    scene.remove(coin);
+                    collectables.splice(i, 1);
+                    updateHUD();
+                }
+            }
+        }
+
+        function takeDamage() {
+            health--;
+            updateHUD();
+            flashOverlay.classList.remove('damage-flash');
+            void flashOverlay.offsetWidth;
+            flashOverlay.classList.add('damage-flash');
+            if (health <= 0) gameOver();
+        }
+
+        function updateHUD() {
+            let hpText = '';
+            for(let i=0; i<3; i++) hpText += (i < health) ? '██ ' : '░░ ';
+            healthDisplay.innerText = hpText;
+            scoreDisplay.innerText = score;
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            document.querySelector('#menuScreen h1').innerText = "SYSTEM FAILURE";
+            document.querySelector('#menuScreen p').innerText = `Data Recovered: ${score} Packets`;
+            startBtn.innerHTML = 'RE-INITIALIZE LINK <i class="fa-solid fa-rotate-right ml-2"></i>';
+            menuScreen.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function startGame() {
+            gameState = 'PLAYING';
+            menuScreen.classList.add('opacity-0', 'pointer-events-none');
+            score = 0;
+            health = 3;
+            gameSpeed = 0.55;
+            currentLane = 1;
+            player.targetX = lanes[1];
+            playerGroup.position.set(0, 0, 0);
+
+            obstacles.forEach(o => scene.remove(o));
+            collectables.forEach(c => scene.remove(c));
+            particles.forEach(p => scene.remove(p));
+            obstacles = [];
+            collectables = [];
+            particles = [];
+            updateHUD();
+        }
+
+        // --- CONTROLS ---
+        window.addEventListener('keydown', (e) => {
+            if (gameState !== 'PLAYING') return;
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') player.moveLeft();
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') player.moveRight();
+            if (e.code === 'ArrowUp' || e.code === 'KeyW') player.jump();
+            if (e.code === 'Space') player.dash();
+        });
+
+        startBtn.addEventListener('click', startGame);
+        document.getElementById('btnLeft').addEventListener('touchstart', (e) => { e.preventDefault(); player.moveLeft(); });
+        document.getElementById('btnLeft').addEventListener('click', () => player.moveLeft());
+        document.getElementById('btnRight').addEventListener('touchstart', (e) => { e.preventDefault(); player.moveRight(); });
+        document.getElementById('btnRight').addEventListener('click', () => player.moveRight());
+        document.getElementById('btnJump').addEventListener('touchstart', (e) => { e.preventDefault(); player.jump(); });
+        document.getElementById('btnJump').addEventListener('click', () => player.jump());
+        document.getElementById('btnDash').addEventListener('touchstart', (e) => { e.preventDefault(); player.dash(); });
+        document.getElementById('btnDash').addEventListener('click', () => player.dash());
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- ANIMATION LOOP ---
+        let frameCount = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (gameState === 'PLAYING') {
+                frameCount++;
+                gridHelper.position.z += gameSpeed;
+                if (gridHelper.position.z > 10) gridHelper.position.z = 0;
+
+                for (let i = obstacles.length - 1; i >= 0; i--) {
+                    obstacles[i].position.z += gameSpeed;
+                    if (obstacles[i].position.z > 15) {
+                        scene.remove(obstacles[i]);
+                        obstacles.splice(i, 1);
+                    }
+                }
+                for (let i = collectables.length - 1; i >= 0; i--) {
+                    collectables[i].position.z += gameSpeed;
+                    collectables[i].rotation.x += 0.05;
+                    collectables[i].rotation.y += 0.05;
+                    if (collectables[i].position.z > 15) {
+                        scene.remove(collectables[i]);
+                        collectables.splice(i, 1);
+                    }
+                }
+
+                if (frameCount % Math.max(25, Math.floor(60 - gameSpeed*15)) === 0) spawnObject();
+
+                player.update();
+                checkCollisions();
+                updateParticles();
+
+                neonLight.position.x = playerGroup.position.x;
+                neonLight.position.z = playerGroup.position.z - 2;
+
+                if (frameCount % 600 === 0) gameSpeed += 0.04;
+                if (frameCount % 12 === 0) {
+                    score++;
+                    updateHUD();
+                }
+            } else {
+                player.animateLimbs();
+                camera.position.x = Math.sin(Date.now() * 0.001) * 1.5;
+                camera.lookAt(0, 2, -10);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
+
