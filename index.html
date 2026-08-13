@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mini Me Life Forecaster</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero">
+      <p class="eyebrow">Private agentic life simulator</p>
+      <h1>Mini Me Life Forecaster</h1>
+      <p class="lede">Train a tiny local model from your check-ins, commitments, goals, and notes, then let specialized mini-agents predict the next seven days.</p>
+    </section>
+
+    <section class="card grid two-col" aria-labelledby="input-heading">
+      <div>
+        <h2 id="input-heading">Your live signals</h2>
+        <p class="muted">Everything stays in this browser. Save check-ins to build memory and improve future forecasts.</p>
+        <form id="signal-form">
+          <label>Mood <span id="mood-value">6</span><input name="mood" type="range" min="1" max="10" value="6" /></label>
+          <label>Energy <span id="energy-value">6</span><input name="energy" type="range" min="1" max="10" value="6" /></label>
+          <label>Focus <span id="focus-value">6</span><input name="focus" type="range" min="1" max="10" value="6" /></label>
+          <label>Sleep hours <span id="sleep-value">7</span><input name="sleep" type="range" min="3" max="10" value="7" step="0.5" /></label>
+          <label>Stress <span id="stress-value">4</span><input name="stress" type="range" min="1" max="10" value="4" /></label>
+          <label>Social battery <span id="social-value">6</span><input name="social" type="range" min="1" max="10" value="6" /></label>
+          <label for="commitments">Upcoming commitments</label>
+          <textarea id="commitments" name="commitments" rows="4" placeholder="Example: project due Thursday, gym Saturday, interview Monday"></textarea>
+          <label for="goals">Main goals</label>
+          <textarea id="goals" name="goals" rows="3" placeholder="Example: finish essay, sleep earlier, practice coding"></textarea>
+          <label for="notes">Recent data journal</label>
+          <textarea id="notes" name="notes" rows="4" placeholder="Example: slept badly this week, finished two assignments, argued with a friend"></textarea>
+          <div class="button-row">
+            <button type="submit">Run agent forecast</button>
+            <button type="button" id="save-checkin" class="secondary">Save check-in</button>
+            <button type="button" id="clear-memory" class="ghost">Clear memory</button>
+          </div>
+        </form>
+      </div>
+      <aside class="mini-you" aria-live="polite">
+        <div class="avatar">AI</div>
+        <h2>Your mini-you</h2>
+        <p id="persona-summary">Waiting for your data. I will summarize your pattern here.</p>
+        <div class="agent-stack" aria-label="Agents used">
+          <span>Pattern Agent</span><span>Calendar Agent</span><span>Wellbeing Agent</span><span>Goal Agent</span>
+        </div>
+        <p id="memory-count" class="memory-count">0 saved check-ins</p>
+      </aside>
+    </section>
+
+    <section id="insights" class="insights" aria-live="polite"></section>
+    <section id="forecast" class="forecast" aria-live="polite"></section>
+  </main>
+  <script src="forecaster.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
