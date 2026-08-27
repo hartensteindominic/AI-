@@ -1,0 +1,17 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+enum Role { BORROWER SUPPORT ADMIN OWNER }
+enum IdentityStatus { NOT_STARTED PENDING VERIFIED FAILED REVIEW_REQUIRED }
+enum LoanStatus { DRAFT ELIGIBILITY_PENDING OFFERED ACCEPTED DISBURSEMENT_PENDING ACTIVE REPAID DECLINED CANCELED DISBURSEMENT_FAILED PAST_DUE DEFAULTED WRITTEN_OFF }
+enum PaymentStatus { CREATED PENDING PROCESSING SETTLED FAILED RETURNED CANCELED }
+model User { id String @id @default(cuid()) email String @unique emailVerified DateTime? phone String? @unique phoneVerified DateTime? identityStatus IdentityStatus @default(NOT_STARTED) role Role @default(BORROWER) accountStatus String @default("ACTIVE") createdAt DateTime @default(now()) updatedAt DateTime @updatedAt borrower BorrowerProfile? banks BankConnection[] loans Loan[] consents Consent[] }
+model BorrowerProfile { id String @id @default(cuid()) userId String @unique user User @relation(fields:[userId],references:[id]) kycProviderRef String? riskStatus String @default("UNASSESSED") eligibilityStatus String @default("PENDING") jurisdiction String? }
+model BankConnection { id String @id @default(cuid()) userId String user User @relation(fields:[userId],references:[id]) provider String providerReference String accountMask String? accountType String? verificationStatus String createdAt DateTime @default(now()) }
+model Loan { id String @id @default(cuid()) userId String user User @relation(fields:[userId],references:[id]) principalCents Int aprBps Int interestCents Int permittedFeeCents Int @default(0) totalRepaymentCents Int amountPaidCents Int @default(0) outstandingCents Int dueDate DateTime originatedAt DateTime? status LoanStatus @default(DRAFT) pricingVersion String agreementVersion String repayments Repayment[] createdAt DateTime @default(now()) updatedAt DateTime @updatedAt @@index([userId,status]) }
+model Repayment { id String @id @default(cuid()) loanId String loan Loan @relation(fields:[loanId],references:[id]) amountCents Int providerTransactionId String? @unique idempotencyKey String @unique status PaymentStatus @default(CREATED) initiatedAt DateTime @default(now()) settledAt DateTime? failureCode String? }
+model LedgerTransaction { id String @id @default(cuid()) externalRef String? idempotencyKey String @unique type String status String createdAt DateTime @default(now()) entries LedgerEntry[] }
+model LedgerEntry { id String @id @default(cuid()) transactionId String transaction LedgerTransaction @relation(fields:[transactionId],references:[id]) account String direction String amountCents Int currency String @default("USD") createdAt DateTime @default(now()) }
+model Consent { id String @id @default(cuid()) userId String user User @relation(fields:[userId],references:[id]) type String documentVersion String ipMetadata String? deviceMetadata String? createdAt DateTime @default(now()) revokedAt DateTime? }
+model AuditLog { id String @id @default(cuid()) actorUserId String? action String targetType String? targetId String? metadata Json? createdAt DateTime @default(now()) }
+model AppConfig { key String @id value Json updatedBy String? updatedAt DateTime @updatedAt }
+model WebhookEvent { id String @id @default(cuid()) provider String providerId String eventType String payloadHash String processedAt DateTime? receivedAt DateTime @default(now()) @@unique([provider,providerId]) }

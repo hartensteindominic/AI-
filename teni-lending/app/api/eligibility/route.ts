@@ -1,0 +1,1 @@
+import {lendingConfig} from "@/lib/config";import {ok} from "@/lib/http";export async function GET(){return ok({decision:lendingConfig.mode==="sandbox"?"APPROVED":"REVIEW",reasons:lendingConfig.mode==="sandbox"?["SANDBOX_VERIFIED"]:["PRODUCTION_PROVIDER_REQUIRED"]})}

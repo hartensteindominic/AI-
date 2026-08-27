@@ -1,0 +1,1 @@
+import {fail,ok} from "@/lib/http";import {repaySandboxLoan} from "@/lib/sandbox";export async function POST(request:Request){try{if(!request.headers.get("idempotency-key"))throw new Error("Idempotency key required");return ok(repaySandboxLoan())}catch(error){return fail(error)}}
