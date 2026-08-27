@@ -1,0 +1,3 @@
+export function assertCents(value:number,label="amount"){if(!Number.isSafeInteger(value)||value<0)throw new Error(`${label} must be a non-negative integer number of cents`);return value;}
+export function formatUsd(cents:number){assertCents(cents);return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(cents/100);}
+export function simpleInterestCents(principalCents:number,aprBps:number,days:number){assertCents(principalCents,"principalCents");assertCents(aprBps,"aprBps");assertCents(days,"days");const numerator=BigInt(principalCents)*BigInt(aprBps)*BigInt(days);const denominator=10000n*365n;return Number((numerator+denominator/2n)/denominator);}

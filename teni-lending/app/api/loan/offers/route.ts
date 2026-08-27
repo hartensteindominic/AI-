@@ -1,0 +1,1 @@
+import {z} from "zod";import {createLoanOffer} from "@/lib/domain";import {fail,ok} from "@/lib/http";const schema=z.object({principalCents:z.number().int().min(100).max(1000)});export async function POST(request:Request){try{const input=schema.parse(await request.json());return ok(createLoanOffer(input.principalCents));}catch(error){return fail(error)}}

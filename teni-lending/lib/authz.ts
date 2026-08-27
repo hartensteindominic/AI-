@@ -1,0 +1,1 @@
+import {lendingConfig} from "./config";export function requireSandboxOwner(request:Request){if(lendingConfig.mode!=="sandbox")throw new Error("Production admin authentication is not configured");if(request.headers.get("x-sandbox-role")!=="OWNER")throw new Error("Owner authorization required");}

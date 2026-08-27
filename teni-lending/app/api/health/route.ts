@@ -1,0 +1,1 @@
+import {assertProductionReady,lendingConfig} from "@/lib/config";import {fail,ok} from "@/lib/http";export async function GET(){try{assertProductionReady();return ok({status:"ok",mode:lendingConfig.mode,lendingEnabled:lendingConfig.lendingEnabled});}catch(error){return fail(error,503)}}
